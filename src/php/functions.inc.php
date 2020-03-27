@@ -3,6 +3,10 @@
 
 global $dbc;
 
+
+define('AUTH', '$2y$10$r2xFTx2FtPCjlM.zdOslMunSAgQ5KvEipKuWgKvlac8DA/VwijfKy');
+
+
 if (isset($_REQUEST['action'])) {
 	$_REQUEST['action']($dbc, $_REQUEST);
 }
@@ -48,20 +52,44 @@ function add($dbc, $data) {
 	$imdbID = $data['imdbID'];
 	$vid = $data['vid'];
 	$name = $data['name'];
+	$password = $data['password'];
 
-	if ($imdbID && $vid && $name) {
+	if ($imdbID && $vid && $name && $password) {
 	} else {
 		return failure();
 	}
 
-	$res = false;
-	try {
-		$res = $dbc->query("INSERT INTO vids (imdbID, vid, name) VALUES ('$imdbID', '$vid', '$name')");
-		if ($res) {
+	if (!password_verify($password, AUTH)) {return failure();}
+
+	$res = $dbc->query("INSERT INTO vids (imdbID, vid, name) VALUES ('$imdbID', '$vid', '$name')");
+
+	if ($res) {
+		return success();
+	}
+	return failure();
+}
+
+
+function remove($dbc, $data) {
+	$id = $data['id'];
+	$password = $data['password'];
+
+	if ($id && $password && password_verify($password, AUTH)) {
+	} else {
+		return failure();
+	}
+
+	$res1 = $dbc->query("SELECT * FROM vids WHERE id='$id'");
+
+	if ($res1 && $res1->num_rows) 
+	{
+		$vid = $res1->fetch_assoc()['vid'];
+		$deleted = unlink('src/vid/'.$vid);
+		
+		if ($deleted) {
+			$res2 = $dbc->query("DELETE FROM vids WHERE id='$id'");
 			return success();
 		}
-	} catch (Exception $e) {
-		return failure();
 	}
 	return failure();
 }
