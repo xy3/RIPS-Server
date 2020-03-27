@@ -1,10 +1,14 @@
 <?php 
 
+// 
+// beware.. bad code below
+//
+
 
 global $dbc;
 
 
-define('AUTH', '$2y$10$r2xFTx2FtPCjlM.zdOslMunSAgQ5KvEipKuWgKvlac8DA/VwijfKy');
+define('AUTH', '$2y$10$LK9FNXZMLEXlhZC76jcYnu.S1OhdMWKMEV8xY45YqfTbFtikBO/AO');
 
 
 if (isset($_REQUEST['action'])) {
@@ -70,26 +74,40 @@ function add($dbc, $data) {
 }
 
 
-function remove($dbc, $data) {
+function delete($dbc, $data) {
 	$id = $data['id'];
 	$password = $data['password'];
 
 	if ($id && $password && password_verify($password, AUTH)) {
 	} else {
-		return failure();
+		return failure('auth');
 	}
+	
 
-	$res1 = $dbc->query("SELECT * FROM vids WHERE id='$id'");
-
-	if ($res1 && $res1->num_rows) 
+	$sel = "SELECT * FROM vids WHERE id='$id'";
+	$del = "DELETE FROM vids WHERE id='$id'";
+	
+	$r1 = $dbc->query($sel);
+	if ($r1 && $r1->num_rows)
 	{
-		$vid = $res1->fetch_assoc()['vid'];
-		$deleted = unlink('src/vid/'.$vid);
+		$row = $r1->fetch_assoc();
+		$imdbID = $row['imdbID'];
+		$vid = $row['vid'];
+		$name = $row['name'];
 		
-		if ($deleted) {
-			$res2 = $dbc->query("DELETE FROM vids WHERE id='$id'");
-			return success();
+		$ins = "INSERT INTO to_delete VALUES ('$id', '$imdbID', '$vid', '$name')";
+		// Remove from active table and add to the
+		// 'to_delete' table for later file deletion
+		$r1 = $dbc->query($del);
+		$r2 = $dbc->query($ins);
+		if (!$r1) {
+			return failure('r1');
 		}
+		if (!$r2) {
+			return failure('r2');
+		}
+		return success();
 	}
-	return failure();
+	
+	return failure('db');
 }
