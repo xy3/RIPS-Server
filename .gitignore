@@ -1,5 +1,7 @@
 composer.phar
 /vendor/
 
-/src/vid/*
+src/vid/*
+src/subs/*
+*.log
 dbc.inc.php

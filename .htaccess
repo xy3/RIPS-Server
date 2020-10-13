@@ -1,3 +1,10 @@
 RewriteEngine on
+RewriteBase /
+<FilesMatch "^[^.]+$">
+    ForceType video/mp4
+</FilesMatch>
+RewriteRule ^v/(.*?).mp4$ src/vid/$1 [R,L]
+RewriteRule ^v/(.*)$ src/vid/$1 [R,L]
 RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !^v
 RewriteRule . index.php [L]

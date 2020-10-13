@@ -4,15 +4,11 @@
 // beware.. bad code below
 //
 
-
-global $dbc;
-
-
 define('AUTH', '$2y$10$LK9FNXZMLEXlhZC76jcYnu.S1OhdMWKMEV8xY45YqfTbFtikBO/AO');
-
+// its the j arod irt
 
 if (isset($_REQUEST['action'])) {
-	$_REQUEST['action']($dbc, $_REQUEST);
+	$_REQUEST['action'](Database::newConnection(), $_REQUEST);
 }
 
 
@@ -23,21 +19,16 @@ function success($msg='') { return status(1, $msg); }
 function failure($msg='') { return status(0, $msg); }
 
 
-function check($str) {
-	return isset($str) && strlen($str);
-}
-
-
-function show($dbc, $id) {
-	$res = $dbc->query("SELECT * FROM vids WHERE id=$id");
+function subtitles($dbc, $imdbID) {
+	$res = $dbc->query("SELECT * FROM subs WHERE imdbID='$imdbID'");
 	if ($res) {
 		$row = $res->fetch_assoc();
-		require_once 'src/php/viewnormal.inc.php';
-		$fp = $row['vid'];
-		$s = new VStream('src/vid/'.$fp);
-		$s->start();
+		$file = $row['file'];
+		return $file;
 	}
+	return false;
 }
+
 
 function listmovies($dbc) {
 	$res = $dbc->query("SELECT * FROM vids");
@@ -49,6 +40,15 @@ function listmovies($dbc) {
 		}
 		echo json_encode($rows);
 	}
+}
+
+function info($dbc, $id) {
+	$res = $dbc->query("SELECT * FROM vids WHERE id=$id");
+	if ($res) {
+		$row = $res->fetch_assoc();
+		return success($row);
+	}
+	return failure($row);
 }
 
 
@@ -65,13 +65,35 @@ function add($dbc, $data) {
 
 	if (!password_verify($password, AUTH)) {return failure();}
 
-	$res = $dbc->query("INSERT INTO vids (imdbID, vid, name) VALUES ('$imdbID', '$vid', '$name')");
+	$res = $dbc->query("
+		INSERT INTO vids (imdbID, vid, name) VALUES ('$imdbID', '$vid', '$name')
+		ON DUPLICATE KEY UPDATE imdbID='$imdbID', vid='$vid', name='$name'
+		");
 
 	if ($res) {
 		return success();
 	}
 	return failure();
 }
+
+
+function set_as_live($dbc, $data) {
+	$imdbID = $data['imdbID'];
+	$password = $data['password'];
+
+	if (!($imdbID && $password)) {
+		return failure();
+	}
+
+	if (!password_verify($password, AUTH)) {return failure();}
+
+	$res = $dbc->query("UPDATE vids SET live=1 WHERE imdbID = '$imdbID'");
+	if ($res) {
+		return success();
+	}
+	return failure();	
+}
+
 
 
 function delete($dbc, $data) {
@@ -110,4 +132,68 @@ function delete($dbc, $data) {
 	}
 	
 	return failure('db');
+}
+
+
+function remove_from($dbc, $data) {
+	$imdbID = $data['imdbID'];
+	$password = $data['password'];
+	$table = $data['table'];
+
+	if ($imdbID && $password && password_verify($password, AUTH)) {
+	} else {
+		return failure('auth');
+	}
+	
+	$del = $dbc->query("DELETE FROM `$table` WHERE imdbID='$imdbID'");
+	if ($del) {
+		return success('Deleted successfully.');
+	}
+	return failure('del');
+}
+
+
+
+
+function add_subs($dbc, $data) {
+	$imdbID = $data['imdbID'];
+	$hashed_filename = $data['hashed_filename'];
+	$file = $data['file'];
+	$password = $data['password'];
+
+	if ($imdbID && $hashed_filename && $file && $password) {
+	} else {
+		return failure();
+	}
+
+	if (!password_verify($password, AUTH)) {return failure("PW");}
+
+	$res = $dbc->query("
+		REPLACE INTO subs (imdbID, file, name) 
+		VALUES ('$imdbID', '$hashed_filename', '$file')"
+	);
+
+	if ($res) {
+		return success();
+	}
+	return failure();
+}
+
+
+
+function subs_exist($dbc, $data) {
+	$imdbID = $data['imdbID'];
+	if (!$imdbID) {
+		return failure();
+	}
+
+	$res = $dbc->query("
+		SELECT * FROM subs
+		WHERE imdbID='$imdbID'
+	");
+
+	if ($res && $res->num_rows > 0) {
+		return success();
+	}
+	return failure("Does not exist");
 }
